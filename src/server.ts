@@ -8,8 +8,15 @@ import express from 'express';
 import { wrap } from 'async-middleware';
 import cors from 'cors';
 import httpProxy from 'http-proxy';
-import { Counter, Gauge, register } from 'prom-client';
+
 import type { Config } from './config';
+import {
+  register,
+  startTimeGauge,
+  requestCounter,
+  proxiedCounter,
+  dnsFailureCounter,
+} from './metrics';
 
 function getPort(config: Config) {
   if (config.proxy.port) {
@@ -40,27 +47,8 @@ function createServer(config: Config, requestListener: RequestListener) {
 }
 
 export function startServer(config: Config) {
-  const requestCounter = new Counter({
-    name: 'cephyproxy_requests_total',
-    help: 'Total HTTP requests received',
-    labelNames: ['method', 'path', 'status'],
-  });
-
-  const dnsFailureCounter = new Counter({
-    name: 'cephyproxy_dns_failures_total',
-    help: 'Total failed DNS lookups',
-  });
-
-  const proxiedCounter = new Counter({
-    name: 'cephyproxy_proxied_total',
-    help: 'Total successfully proxied requests',
-  });
-
-  const startTimeGauge = new Gauge({
-    name: 'cephyproxy_start_time_seconds',
-    help: 'Start time of the proxy in seconds since epoch',
-  });
   startTimeGauge.setToCurrentTime();
+
   if (config.dns?.address) {
     dns.setServers([`${config.dns.address}:${config.dns.port ?? 53}`]);
   }
