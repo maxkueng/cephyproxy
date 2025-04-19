@@ -182,7 +182,6 @@ export function startServer(config: Config) {
     const url = `${protocol}://${host}:${port}`;
     const dnsAddress = config.dns.address ? config.dns.address : dns.getServers().join(', ');
 
-    console.info(`Listening at ${config.proxy.ssl ? 'https:' : 'http:'}//${config.proxy.address}:${port}`);
     console.info(`CephyProxy listening on ${url}`);
     console.info(`Proxy target: ${config.proxy.target}`);
     if (config.dns?.address) {
