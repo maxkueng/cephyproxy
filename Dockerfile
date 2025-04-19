@@ -17,4 +17,4 @@ COPY --from=builder /app/package*.json ./
 
 RUN npm install --omit=dev
 
-CMD ["node", "dist/server.js", "--config", "/config.toml"]
+CMD ["node", "dist/cli.js", "--config", "/config.toml"]
