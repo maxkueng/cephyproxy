@@ -75,17 +75,6 @@ export function startServer(config: Config) {
     }
   };
 
-  const app = express();
-
-  app.get('/metrics', async (_req, res) => {
-    res.set('Content-Type', register.contentType);
-    res.end(await register.metrics());
-  });
-
-  app.use(cors({
-    origin: '*',
-  }));
-
   const proxy = httpProxy.createProxyServer({
     target: config.proxy.target,
     xfwd: false,
@@ -100,6 +89,17 @@ export function startServer(config: Config) {
     res.setHeader('access-control-allow-origin', '*');
     res.setHeader('access-control-allow-headers', '*');
     res.setHeader('access-control-allow-credentials', 'true');
+  });
+
+  const app = express();
+
+  app.use(cors({
+    origin: '*',
+  }));
+
+  app.get('/metrics', async (_req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
   });
 
   app.get(['/livez', '/healthz'], (_req, res) => {
