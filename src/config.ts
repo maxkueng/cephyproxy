@@ -22,7 +22,7 @@ export const configSchema = z.object({
   ),
 
   dns: z.object({
-    address: z.string().ip().optional(),
+    address: z.string().optional(),
     port: z.number().int().default(53),
   }),
 });
