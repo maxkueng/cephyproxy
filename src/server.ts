@@ -165,7 +165,6 @@ export function startServer(config: Config) {
     
     proxy.web(req, res, {
       target: config.proxy.target,
-      changeOrigin: true,
       headers: { host: cname },
       secure: false,
     }, (err) => {
