@@ -20,9 +20,9 @@ import {
   dnsFailureCounter,
 } from './metrics';
 
-  const logger = pino(pinoPretty({
-    colorize: false,
-  }));
+const logger = pino(pinoPretty({
+  colorize: false,
+}));
 
 function getPort(config: Config) {
   if (config.proxy.port) {
