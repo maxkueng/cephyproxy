@@ -13,6 +13,7 @@ export const configSchema = z.object({
     keyFile: z.string().optional(),
     certFile: z.string().optional(),
     target: z.string().url(),
+    allowedDomains: z.array(z.string()),
   }).refine(
     (proxy) => !proxy.ssl || (proxy.keyFile && proxy.certFile),
     {

@@ -109,17 +109,31 @@ export function startServer(config: Config) {
   app.use(cors({
     origin: '*',
   }));
+  
+  const internalRoute = (
+    path: string | string[],
+    handler: express.RequestHandler,
+  ) => {
+    app.get(path, (req, res, next) => {
+      const host = req.headers.host?.split(':')[0];
+      const isProxyDomain = host && config.proxy.allowedDomains.some(suffix => host.endsWith(suffix));
+      if (isProxyDomain) {
+        return next();
+      }
+      handler(req, res, next);
+    });
+  };
 
-  app.get('/metrics', async (_req, res) => {
+  internalRoute('/metrics', async (_req, res) => {
     res.set('Content-Type', register.contentType);
     res.end(await register.metrics());
   });
 
-  app.get(['/livez', '/healthz'], (_req, res) => {
+  internalRoute(['/livez', '/healthz'], (_req, res) => {
     res.sendStatus(200);
   });
   
-  app.get('/readyz', async (req, res) => {
+  internalRoute('/readyz', async (req, res) => {
     const address = config.dns.address ?? dns.getServers()[0];
     const port = config.dns.port ?? 53;
   
@@ -156,12 +170,21 @@ export function startServer(config: Config) {
   app.use(wrap(async (req, res) => {
     let statusCode = 200;
     const originalHost = req.headers.host;
+    logger.debug(`Original host: ${originalHost}`);
+
     if (!originalHost) {
       requestCounter.inc({ method: req.method ?? 'UNKNOWN', path: req.path, status: '400' });
       return res.status(400).send('Missing Host header');
     }
+    
+    const hostname = originalHost.split(':')[0];
+    const isAllowedDomain = config.proxy.allowedDomains.some(suffix =>
+      hostname.endsWith(suffix)
+    );
 
-    logger.debug(`Original host: ${originalHost}`);
+    if (!isAllowedDomain) {
+      return res.status(403).send('Forbidden: host not in allowedDomains');
+    }
 
     const cname = await resolveCNAME(originalHost);
     logger.debug(`Resolved CNAME: ${cname}`);
