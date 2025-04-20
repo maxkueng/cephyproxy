@@ -8,6 +8,8 @@ import express from 'express';
 import { wrap } from 'async-middleware';
 import cors from 'cors';
 import httpProxy from 'http-proxy';
+import pino from 'pino';
+import pinoPretty from 'pino-pretty';
 
 import type { Config } from './config';
 import {
@@ -17,6 +19,10 @@ import {
   proxiedCounter,
   dnsFailureCounter,
 } from './metrics';
+
+  const logger = pino(pinoPretty({
+    colorize: false,
+  }));
 
 function getPort(config: Config) {
   if (config.proxy.port) {
@@ -48,6 +54,10 @@ function createServer(config: Config, requestListener: RequestListener) {
 
 export function startServer(config: Config) {
   startTimeGauge.setToCurrentTime();
+  
+  if (config.debug) {
+    logger.level = 'debug';
+  }
 
   if (config.dns?.address) {
     dns.setServers([`${config.dns.address}:${config.dns.port ?? 53}`]);
@@ -58,7 +68,7 @@ export function startServer(config: Config) {
       const result = await dns.promises.resolveCname(hostname);
       return result[0] ?? null;
     } catch (err) {
-      console.warn(`DNS resolution failed for ${hostname}:`, err);
+      logger.warn(`DNS resolution failed for ${hostname}:`, err);
       return null;
     }
   };
@@ -77,6 +87,11 @@ export function startServer(config: Config) {
     res.setHeader('access-control-allow-origin', '*');
     res.setHeader('access-control-allow-headers', '*');
     res.setHeader('access-control-allow-credentials', 'true');
+  });
+  
+  proxy.on('proxyReq', (proxyReq, req, res) => {
+    logger.debug('Outgoing request headers to target:');
+    logger.debug(proxyReq.getHeaders());
   });
 
   const app = express();
@@ -136,11 +151,10 @@ export function startServer(config: Config) {
       return res.status(400).send('Missing Host header');
     }
 
-    if (config.debug) console.log({ originalHost });
+    logger.debug(`Original host: ${originalHost}`);
 
     const cname = await resolveCNAME(originalHost);
-
-    if (config.debug) console.log({ cname });
+    logger.debug(`Resolved CNAME: ${cname}`);
 
     if (!cname) {
       statusCode = 502;
@@ -148,13 +162,14 @@ export function startServer(config: Config) {
       requestCounter.inc({ method: req.method ?? 'UNKNOWN', path: req.path, status: String(statusCode) });
       return res.status(502).send('Could not resolve target');
     }
-
+    
     proxy.web(req, res, {
       target: config.proxy.target,
       changeOrigin: true,
       headers: { host: cname },
+      secure: false,
     }, (err) => {
-      console.error('Proxy error:', err);
+      logger.error('Proxy error:', err);
       statusCode = 502;
       requestCounter.inc({ method: req.method ?? 'UNKNOWN', path: req.path, status: String(statusCode) });
       res.status(502).send('Proxy error');
@@ -170,13 +185,13 @@ export function startServer(config: Config) {
     const url = `${protocol}://${host}:${port}`;
     const dnsAddress = config.dns.address ? config.dns.address : dns.getServers().join(', ');
 
-    console.info(`CephyProxy listening on ${url}`);
-    console.info(`Proxy target: ${config.proxy.target}`);
+    logger.info(`CephyProxy listening on ${url}`);
+    logger.info(`Proxy target: ${config.proxy.target}`);
     if (config.dns?.address) {
-      console.info(`Using DNS server: ${dnsAddress}:${config.dns.port ?? 53}`);
+      logger.info(`Using DNS server: ${dnsAddress}:${config.dns.port ?? 53}`);
     }
     if (config.debug) {
-      console.info('Debug mode is enabled');
+      logger.info('Debug mode is enabled');
     }
   });
 
