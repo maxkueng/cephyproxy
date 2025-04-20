@@ -90,6 +90,16 @@ export function startServer(config: Config) {
   });
   
   proxy.on('proxyReq', (proxyReq, req, res) => {
+    const resolvedHost = (req as any).__resolvedHost;
+    if (resolvedHost) {
+      proxyReq.setHeader('host', resolvedHost);
+    }
+    
+    proxyReq.removeHeader('x-forwarded-host');
+    proxyReq.removeHeader('x-forwarded-proto');
+    proxyReq.removeHeader('x-forwarded-port');
+    proxyReq.removeHeader('x-forwarded-for');
+
     logger.debug('Outgoing request headers to target:');
     logger.debug(proxyReq.getHeaders());
   });
@@ -162,6 +172,8 @@ export function startServer(config: Config) {
       requestCounter.inc({ method: req.method ?? 'UNKNOWN', path: req.path, status: String(statusCode) });
       return res.status(502).send('Could not resolve target');
     }
+    
+    (req as any).__resolvedHost = cname;
     
     proxy.web(req, res, {
       target: config.proxy.target,
