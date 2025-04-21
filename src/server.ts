@@ -8,8 +8,7 @@ import express from 'express';
 import { wrap } from 'async-middleware';
 import cors from 'cors';
 import httpProxy from 'http-proxy';
-import pino from 'pino';
-import pinoPretty from 'pino-pretty';
+import type { Logger } from 'pino';
 
 import type { Config } from './config';
 import {
@@ -19,10 +18,6 @@ import {
   proxiedCounter,
   dnsFailureCounter,
 } from './metrics';
-
-const logger = pino(pinoPretty({
-  colorize: false,
-}));
 
 function getPort(config: Config) {
   if (config.proxy.port) {
@@ -52,7 +47,7 @@ function createServer(config: Config, requestListener: RequestListener) {
   return http.createServer(requestListener);
 }
 
-export function startServer(config: Config) {
+export function startServer(config: Config, logger: Logger) {
   startTimeGauge.setToCurrentTime();
   
   if (config.debug) {

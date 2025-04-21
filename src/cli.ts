@@ -2,6 +2,8 @@
 
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
+import pino from 'pino';
+import pinoPretty from 'pino-pretty';
 
 import { loadConfig } from './config';
 import { startServer } from './server';
@@ -17,7 +19,20 @@ const argv = yargs(hideBin(process.argv))
     default: false,
     description: 'Enable debug logging',
   })
+  .option('pretty-logs', {
+    type: 'boolean',
+    default: true,
+    description: 'Pretty log output',
+  })
   .parseSync();
+  
+const logger = argv.prettyLogs ? (
+  pino(pinoPretty({
+    colorize: false,
+  }))
+) : (
+  pino()
+);
 
 const configPath = argv.config;
 const config = loadConfig({
@@ -27,7 +42,7 @@ const config = loadConfig({
   },
 });
 
-const stopServer = startServer(config);
+const stopServer = startServer(config, logger);
 
 const shutdown = (signal: string, value: number) => {
   stopServer(() => {
@@ -44,7 +59,7 @@ const signals = {
 
 Object.entries(signals).forEach(([signal, value]) => {
   process.on(signal, () => {
-    console.log(`Process received a ${signal} signal`);
+    logger.info(`Process received a ${signal} signal`);
     shutdown(signal, value);
   });
 });
