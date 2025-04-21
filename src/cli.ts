@@ -46,7 +46,7 @@ const stopServer = startServer(config, logger);
 
 const shutdown = (signal: string, value: number) => {
   stopServer(() => {
-    console.log(`Server stopped by ${signal} with value ${value}`);
+    logger.info(`Server stopped by ${signal} with value ${value}`);
     process.exit(128 + value);
   });
 };
