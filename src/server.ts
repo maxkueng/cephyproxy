@@ -187,6 +187,17 @@ export function startServer(config: Config, logger: Logger) {
     cnameCache.clear();
     res.sendStatus(204);
   });
+  
+  internalRoute('/cache/stats', (_req, res) => {
+    res.json({
+      size: cnameCache.size,
+      entries: Array.from(cnameCache.entries()).map(([host, data]) => ({
+        host,
+        cname: data.cname,
+        expiresIn: data.expiresAt - Date.now(),
+      })),
+    });
+  });
 
   app.use(wrap(async (req, res) => {
     let statusCode = 200;
