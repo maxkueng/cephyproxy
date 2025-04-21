@@ -57,11 +57,32 @@ export function startServer(config: Config, logger: Logger) {
   if (config.dns?.address) {
     dns.setServers([`${config.dns.address}:${config.dns.port ?? 53}`]);
   }
-
+  
+  const cnameCache = new Map<string, { cname: string; expiresAt: number }>();
+  const defaultTtl = 60 * 1000;
+  
   const resolveCNAME = async (hostname: string): Promise<string | null> => {
+    const cached = cnameCache.get(hostname);
+    const now = Date.now();
+  
+    if (cached && cached.expiresAt > now) {
+      logger.debug(`Using cached CNAME for ${hostname}: ${cached.cname}`);
+      return cached.cname;
+    }
+  
     try {
       const result = await dns.promises.resolveCname(hostname);
-      return result[0] ?? null;
+      const cname = result[0] ?? null;
+  
+      if (cname) {
+        logger.debug(`Caching CNAME for ${hostname}: ${cname}`);
+        cnameCache.set(hostname, {
+          cname,
+          expiresAt: now + defaultTtl,
+        });
+      }
+  
+      return cname;
     } catch (err) {
       logger.warn(`DNS resolution failed for ${hostname}:`, err);
       return null;
@@ -160,6 +181,11 @@ export function startServer(config: Config, logger: Logger) {
         }
       }
     });
+  });
+  
+  internalRoute('/cache/clear', (_req, res) => {
+    cnameCache.clear();
+    res.sendStatus(204);
   });
 
   app.use(wrap(async (req, res) => {
